@@ -163,14 +163,11 @@ df=DataFrame(data, columns=['nums'])
 
 max_group=df.groupby('nums').size()
 max_count=DataFrame(max_group)
-max_count_=max_count,columns='count'
-#print(max_count)
-# sort_desc=max_count.sort_values(by='nums',ascending=False)
-# filtered=sort_desc.loc[(sort_desc['count'] == 1)]
-#print("the highest non repeated number",sort_desc.columns)
+print(max_count)
+sort_desc=max_count.sort_values(by='nums',ascending=False)
+filtered=sort_desc.loc[(sort_desc['count'] == 1)]
+print("the highest non repeated number",sort_desc.columns)
 
 query_check=max_count.query('count<3')
-
-
 print(query_check)
 
