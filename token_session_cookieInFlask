@@ -1,0 +1,70 @@
+import datetime
+import jwt
+from flask import Flask, request, jsonify, make_response, redirect, url_for
+from functools import wraps
+
+app = Flask(__name__)
+
+# Secret key for JWT encoding/decoding
+app.config['SECRET_KEY'] = 'f5490bacdfb640debffb7dbc86f2848b'
+
+# To simulate user database (for the purpose of the example)
+users_db = {
+    'testuser': 'password123'
+}
+
+# JWT token expiration time (in minutes)
+TOKEN_EXPIRATION = 30  # 30 minutes
+
+# Decorator to require JWT authentication for certain routes
+def token_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        token = request.cookies.get('access_token')
+        if not token:
+            return jsonify({'message': 'Token is missing!'}), 403
+        try:
+            # Decode the token using the SECRET_KEY
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            current_user = data['username']
+        except Exception as e:
+            return jsonify({'message': 'Token is invalid or expired!'}), 403
+        return f(current_user, *args, **kwargs)
+    return decorated_function
+
+# Route to login and generate JWT token
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.json.get('username')
+    password = request.json.get('password')
+
+    if username in users_db and users_db[username] == password:
+        # Create JWT token
+        token = jwt.encode(
+            {'username': username, 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=TOKEN_EXPIRATION)},
+            app.config['SECRET_KEY'], 
+            algorithm="HS256"
+        )
+        
+        # Create response and set token as cookie
+        response = make_response(jsonify({'message': 'Login successful!'}))
+        response.set_cookie('access_token', token, httponly=True, secure=False)  # Set cookie as HTTP-only (not accessible by JS)
+        return response
+    else:
+        return jsonify({'message': 'Invalid credentials'}), 401
+
+# Route to access protected content (requires valid JWT token in cookies)
+@app.route('/protected', methods=['GET'])
+@token_required
+def protected(current_user):
+    return jsonify({'message': f'Hello, {current_user}. This is protected content!'})
+
+# Route to logout (delete the JWT token cookie)
+@app.route('/logout', methods=['POST'])
+def logout():
+    response = make_response(jsonify({'message': 'Logged out successfully!'}))
+    response.delete_cookie('access_token')  # Delete JWT token cookie
+    return response
+
+if __name__ == '__main__':
+    app.run(debug=True)
